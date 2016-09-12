@@ -7,7 +7,8 @@ import (
 
 	"io/ioutil"
 
-	"github.com/cloudfoundry-incubator/uaago"
+	"github.com/cf-platform-eng/uaago"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

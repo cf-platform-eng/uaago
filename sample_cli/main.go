@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/cloudfoundry-incubator/uaago"
+	"github.com/cf-platform-eng/uaago"
 )
 
 func main() {
