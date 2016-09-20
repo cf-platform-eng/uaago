@@ -34,6 +34,7 @@ var _ = Describe("uaa_registrar", func() {
 		logger           lager.Logger
 
 		tokenFetcher *MockTokenFetcher
+		client       *Client
 	)
 
 	BeforeEach(func() {
@@ -63,6 +64,13 @@ var _ = Describe("uaa_registrar", func() {
 
 		logger = lager.NewLogger("test")
 		tokenFetcher = &MockTokenFetcher{}
+		client = &Client{
+			ClientId:             "my-uaa-client",
+			Scope:                []string{"openid", "oauth.approvals", "doppler.firehose"},
+			ResourceIds:          []string{"none"},
+			Authorities:          []string{"oauth.login", "doppler.firehose"},
+			AuthorizedGrantTypes: []string{"client_credentials"},
+		}
 	})
 
 	AfterEach(func() {
@@ -110,11 +118,11 @@ var _ = Describe("uaa_registrar", func() {
 			It("exist correctly calls endpoint", func() {
 				responses = append(responses, testServerResponse{code: 404}, testServerResponse{code: 200})
 
-				registrar.RegisterFirehoseClient("my-firehose-user", "my-firehose-secret")
+				registrar.RegisterClient("my-uaa-secret", client)
 
 				request := capturedRequests[0]
 				Expect(request.request.Method).To(Equal("GET"))
-				Expect(request.request.URL.Path).To(Equal("/oauth/clients/my-firehose-user"))
+				Expect(request.request.URL.Path).To(Equal("/oauth/clients/my-uaa-client"))
 				Expect(request.request.Header.Get("Authorization")).To(Equal("my-token"))
 			})
 
@@ -123,7 +131,7 @@ var _ = Describe("uaa_registrar", func() {
 					code: 301, //301 w/o location header forces error
 				})
 
-				err := registrar.RegisterFirehoseClient("my-firehose-user", "my-firehose-secret")
+				err := registrar.RegisterClient("my-uaa-secret", client)
 
 				Expect(err).NotTo(BeNil())
 			})
@@ -132,7 +140,7 @@ var _ = Describe("uaa_registrar", func() {
 				It("correctly calls create client", func() {
 					responses = append(responses, testServerResponse{code: 404}, testServerResponse{code: 201})
 
-					err := registrar.RegisterFirehoseClient("my-firehose-user", "my-firehose-secret")
+					err := registrar.RegisterClient("my-uaa-secret", client)
 					Expect(err).To(BeNil())
 
 					request := capturedRequests[1]
@@ -145,8 +153,8 @@ var _ = Describe("uaa_registrar", func() {
 					err = json.Unmarshal(request.body, &payload)
 					Expect(err).To(BeNil())
 
-					Expect(payload["client_id"]).To(Equal("my-firehose-user"))
-					Expect(payload["client_secret"]).To(Equal("my-firehose-secret"))
+					Expect(payload["client_id"]).To(Equal("my-uaa-client"))
+					Expect(payload["client_secret"]).To(Equal("my-uaa-secret"))
 					Expect(payload["scope"]).To(Equal([]interface{}{"openid", "oauth.approvals", "doppler.firehose"}))
 					Expect(payload["authorized_grant_types"]).To(Equal([]interface{}{"client_credentials"}))
 				})
@@ -154,7 +162,7 @@ var _ = Describe("uaa_registrar", func() {
 				It("returns error if create client fails", func() {
 					responses = append(responses, testServerResponse{code: 404}, testServerResponse{code: 500})
 
-					err := registrar.RegisterFirehoseClient("my-firehose-user", "my-firehose-secret")
+					err := registrar.RegisterClient("my-uaa-secret", client)
 					Expect(err).NotTo(BeNil())
 				})
 			})
@@ -163,13 +171,13 @@ var _ = Describe("uaa_registrar", func() {
 				It("correctly calls update client", func() {
 					responses = append(responses, testServerResponse{code: 200}, testServerResponse{code: 200}, testServerResponse{code: 200})
 
-					err := registrar.RegisterFirehoseClient("my-firehose-user", "my-firehose-secret")
+					err := registrar.RegisterClient("my-uaa-secret", client)
 					Expect(err).To(BeNil())
 					Expect(capturedRequests).To(HaveLen(3))
 
 					request := capturedRequests[1]
 					Expect(request.request.Method).To(Equal("PUT"))
-					Expect(request.request.URL.Path).To(Equal("/oauth/clients/my-firehose-user"))
+					Expect(request.request.URL.Path).To(Equal("/oauth/clients/my-uaa-client"))
 					Expect(request.request.Header.Get("Authorization")).To(Equal("my-token"))
 					Expect(request.request.Header.Get("Content-type")).To(Equal("application/json"))
 
@@ -177,7 +185,7 @@ var _ = Describe("uaa_registrar", func() {
 					err = json.Unmarshal(request.body, &payload)
 					Expect(err).To(BeNil())
 
-					Expect(payload["client_id"]).To(Equal("my-firehose-user"))
+					Expect(payload["client_id"]).To(Equal("my-uaa-client"))
 					Expect(payload["scope"]).To(Equal([]interface{}{"openid", "oauth.approvals", "doppler.firehose"}))
 					Expect(payload["authorized_grant_types"]).To(Equal([]interface{}{"client_credentials"}))
 				})
@@ -185,7 +193,7 @@ var _ = Describe("uaa_registrar", func() {
 				It("returns error if update client fails", func() {
 					responses = append(responses, testServerResponse{code: 200}, testServerResponse{code: 500})
 
-					err := registrar.RegisterFirehoseClient("my-firehose-user", "my-firehose-secret")
+					err := registrar.RegisterClient("my-uaa-secret", client)
 					Expect(capturedRequests).To(HaveLen(2))
 					Expect(err).NotTo(BeNil())
 				})
@@ -193,13 +201,13 @@ var _ = Describe("uaa_registrar", func() {
 				It("updates client secret", func() {
 					responses = append(responses, testServerResponse{code: 200}, testServerResponse{code: 200}, testServerResponse{code: 200})
 
-					err := registrar.RegisterFirehoseClient("my-firehose-user", "my-new-firehose-secret")
+					err := registrar.RegisterClient("my-new-uaa-secret", client)
 					Expect(err).To(BeNil())
 					Expect(capturedRequests).To(HaveLen(3))
 
 					request := capturedRequests[2]
 					Expect(request.request.Method).To(Equal("PUT"))
-					Expect(request.request.URL.Path).To(Equal("/oauth/clients/my-firehose-user/secret"))
+					Expect(request.request.URL.Path).To(Equal("/oauth/clients/my-uaa-client/secret"))
 					Expect(request.request.Header.Get("Authorization")).To(Equal("my-token"))
 					Expect(request.request.Header.Get("Content-type")).To(Equal("application/json"))
 
@@ -207,13 +215,13 @@ var _ = Describe("uaa_registrar", func() {
 					err = json.Unmarshal(request.body, &payload)
 					Expect(err).To(BeNil())
 
-					Expect(payload["secret"]).To(Equal("my-new-firehose-secret"))
+					Expect(payload["secret"]).To(Equal("my-new-uaa-secret"))
 				})
 
 				It("returns error if update client secret fails", func() {
 					responses = append(responses, testServerResponse{code: 200}, testServerResponse{code: 200}, testServerResponse{code: 500})
 
-					err := registrar.RegisterFirehoseClient("my-firehose-user", "my-firehose-secret")
+					err := registrar.RegisterClient("my-uaa-secret", client)
 					Expect(capturedRequests).To(HaveLen(3))
 					Expect(err).NotTo(BeNil())
 				})
@@ -226,7 +234,7 @@ var _ = Describe("uaa_registrar", func() {
 			It("returns err when unable to list users", func() {
 				responses = append(responses, testServerResponse{code: 500})
 
-				_, err := registrar.RegisterUser("my-firehose-user", "my-firehose-password")
+				_, err := registrar.RegisterUser("my-uaa-user", "my-uaa-user-password")
 				Expect(err).NotTo(BeNil())
 				Expect(err.Error()).To(ContainSubstring("500"))
 			})
@@ -234,7 +242,7 @@ var _ = Describe("uaa_registrar", func() {
 			It("error when finding user responds with incorrect doe", func() {
 				responses = append(responses, testServerResponse{code: 500})
 
-				_, err := registrar.RegisterUser("my-firehose-user", "my-firehose-password")
+				_, err := registrar.RegisterUser("my-uaa-user", "my-uaa-user-password")
 				Expect(err).NotTo(BeNil())
 				Expect(err.Error()).To(ContainSubstring("500"))
 			})
@@ -257,20 +265,20 @@ var _ = Describe("uaa_registrar", func() {
 				It("correctly calls endpoint", func() {
 					responses = append(responses, setPasswordResponse)
 
-					_, err := registrar.RegisterUser("my-firehose-user", "my-firehose-password")
+					_, err := registrar.RegisterUser("my-uaa-user", "my-uaa-user-password")
 					Expect(err).To(BeNil())
 
 					request := capturedRequests[0]
 					Expect(request.request.Method).To(Equal("GET"))
 					Expect(request.request.URL.Path).To(Equal("/Users"))
-					Expect(request.request.URL.RawQuery).To(Equal(`filter=userName+eq+"my-firehose-user"`))
+					Expect(request.request.URL.RawQuery).To(Equal(`filter=userName+eq+"my-uaa-user"`))
 					Expect(request.request.Header.Get("Authorization")).To(Equal("my-token"))
 				})
 
 				It("correctly sets password", func() {
 					responses = append(responses, setPasswordResponse)
 
-					_, err := registrar.RegisterUser("my-firehose-user", "my-firehose-password")
+					_, err := registrar.RegisterUser("my-uaa-user", "my-uaa-user-password")
 					Expect(err).To(BeNil())
 
 					request := capturedRequests[1]
@@ -282,7 +290,7 @@ var _ = Describe("uaa_registrar", func() {
 				It("returns user id", func() {
 					responses = append(responses, setPasswordResponse)
 
-					id, err := registrar.RegisterUser("my-firehose-user", "my-firehose-password")
+					id, err := registrar.RegisterUser("my-uaa-user", "my-uaa-user-password")
 					Expect(err).To(BeNil())
 					Expect(id).To(Equal("5c2b3e19-bf76-441a-bfd9-6b499259d646"))
 				})
@@ -290,7 +298,7 @@ var _ = Describe("uaa_registrar", func() {
 				It("returns error when set password returns incorrect code", func() {
 					responses = append(responses, testServerResponse{code: 500})
 
-					_, err := registrar.RegisterUser("my-firehose-user", "my-firehose-password")
+					_, err := registrar.RegisterUser("my-uaa-user", "my-uaa-user-password")
 					Expect(err).NotTo(BeNil())
 					Expect(err.Error()).To(ContainSubstring("500"))
 				})
@@ -318,7 +326,7 @@ var _ = Describe("uaa_registrar", func() {
 					})
 					responses = append(responses, setPasswordResponse)
 
-					_, err := registrar.RegisterUser("my-firehose-user", "my-firehose-password")
+					_, err := registrar.RegisterUser("my-uaa-user", "my-uaa-user-password")
 					Expect(err).To(BeNil())
 
 					request := capturedRequests[1]
@@ -331,7 +339,7 @@ var _ = Describe("uaa_registrar", func() {
 				It("error when create responds with incorrect status code", func() {
 					responses = append(responses, testServerResponse{code: 500})
 
-					_, err := registrar.RegisterUser("my-firehose-user", "my-firehose-password")
+					_, err := registrar.RegisterUser("my-uaa-user", "my-uaa-user-password")
 					Expect(err).NotTo(BeNil())
 					Expect(err.Error()).To(ContainSubstring("500"))
 				})
@@ -343,7 +351,7 @@ var _ = Describe("uaa_registrar", func() {
 					})
 					responses = append(responses, setPasswordResponse)
 
-					_, err := registrar.RegisterUser("my-firehose-user", "my-firehose-password")
+					_, err := registrar.RegisterUser("my-uaa-user", "my-firehose-password")
 					Expect(err).NotTo(BeNil())
 					Expect(err.Error()).To(ContainSubstring("foo"))
 				})
@@ -356,7 +364,7 @@ var _ = Describe("uaa_registrar", func() {
 }`),
 					}, setPasswordResponse)
 
-					_, err := registrar.RegisterUser("my-firehose-user", "my-firehose-password")
+					_, err := registrar.RegisterUser("my-uaa-user", "my-firehose-password")
 					Expect(err).To(BeNil())
 
 					request := capturedRequests[2]
@@ -373,7 +381,7 @@ var _ = Describe("uaa_registrar", func() {
 }`),
 					}, setPasswordResponse)
 
-					id, err := registrar.RegisterUser("my-firehose-user", "my-firehose-password")
+					id, err := registrar.RegisterUser("my-uaa-user", "my-firehose-password")
 					Expect(err).To(BeNil())
 					Expect(id).To(Equal("6c840ccf-550d-489e-992c-629acd53500e"))
 				})

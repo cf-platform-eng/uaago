@@ -70,8 +70,8 @@ type meta struct {
 }
 
 type UaaRegistrar interface {
-	RegisterFirehoseClient(uaaFirehoseUser string, uaaFirehoseSecret string) error
-	RegisterUser(uaaFirehoseUser string, uaaFirehosePassword string) (string, error)
+	RegisterClient(uaaSecret string, client *Client) error
+	RegisterUser(uaaUser string, uaaPassword string) (string, error)
 	AddUserToGroup(userId string, groupName string) error
 }
 
@@ -100,18 +100,18 @@ func NewUaaRegistrar(uaaUrl string, tokenFetcher uaago.TokenFetcher, insecureSki
 	}, nil
 }
 
-func (p *uaaRegistrar) RegisterFirehoseClient(uaaFirehoseClient string, uaaFirehoseSecret string) error {
-	exists, err := p.clientExists(uaaFirehoseClient)
+func (p *uaaRegistrar) RegisterClient(uaaSecret string, uaaClient *Client) error {
+	exists, err := p.clientExists(uaaClient.ClientId)
 	if err != nil {
 		return err
 	}
 
 	if exists {
-		p.logger.Info("Firehose *client* exists, updating")
-		return p.updateClient(uaaFirehoseClient, uaaFirehoseSecret)
+		p.logger.Info(fmt.Sprintf("Client [%s] exists, updating", uaaClient.ClientId))
+		return p.updateClient(uaaSecret, uaaClient)
 	} else {
-		p.logger.Info("Firehose *client* doesn't exists, creating")
-		return p.createClient(uaaFirehoseClient, uaaFirehoseSecret)
+		p.logger.Info(fmt.Sprintf("Client [%s] doesn't exists, creating", uaaClient.ClientId))
+		return p.createClient(uaaSecret, uaaClient)
 	}
 }
 
@@ -132,7 +132,7 @@ func (p *uaaRegistrar) RegisterUser(uaaUser string, uaaPassword string) (string,
 	}
 	p.logger.Info(fmt.Sprintf("User id: %s", id))
 
-	p.logger.Info("Setting firehose password")
+	p.logger.Info(fmt.Sprintf("Setting [%s] password", uaaUser))
 	err = p.setPassword(id, uaaPassword)
 	if err != nil {
 		return "", err
@@ -164,13 +164,13 @@ func (p *uaaRegistrar) AddUserToGroup(userId string, groupName string) error {
 	if err != nil {
 		return err
 	} else {
-		p.logger.Info(fmt.Sprintf("Added [%s] to %s", userId, groupName))
+		p.logger.Info(fmt.Sprintf("Added [%s] to [%s]", userId, groupName))
 		return nil
 	}
 }
 
-func (p *uaaRegistrar) getUserId(uaaFirehoseUser string) (string, error) {
-	url := fmt.Sprintf(`%s/Users?filter=userName+eq+"%s"`, p.uaaUrl, uaaFirehoseUser)
+func (p *uaaRegistrar) getUserId(uaaUser string) (string, error) {
+	url := fmt.Sprintf(`%s/Users?filter=userName+eq+"%s"`, p.uaaUrl, uaaUser)
 	resp, err := p.makeUaaRequest("GET", url, nil, map[string]string{})
 	if err != nil {
 		return "", err
@@ -178,7 +178,8 @@ func (p *uaaRegistrar) getUserId(uaaFirehoseUser string) (string, error) {
 
 	code := resp.StatusCode
 	if code != 200 {
-		return "", errors.New(fmt.Sprintf("Checking if user exists responded incorrectly: %+v", resp))
+		body, _ := ioutil.ReadAll(resp.Body)
+		return "", errors.New(fmt.Sprintf("Checking if user exists responded incorrectly [%d]: %s", resp.StatusCode, string(body)))
 	} else {
 		resourceSet := resourceSet{}
 		_, err := p.readAndUnmarshall(resp, &resourceSet)
@@ -197,13 +198,13 @@ func (p *uaaRegistrar) getUserId(uaaFirehoseUser string) (string, error) {
 	}
 }
 
-func (p *uaaRegistrar) createUser(uaaFirehoseUser string, uaaFirehosePassword string) (string, error) {
+func (p *uaaRegistrar) createUser(uaaUser string, uaaPassword string) (string, error) {
 	url := fmt.Sprintf(`%s/Users`, p.uaaUrl)
 	user := user{
-		UserName: uaaFirehoseUser,
+		UserName: uaaUser,
 		Origin:   "uaa",
 		Emails: []email{
-			{Value: uaaFirehoseUser},
+			{Value: uaaUser},
 		},
 	}
 	resp, err := p.makeUaaRequest("POST", url, user, map[string]string{})
@@ -214,7 +215,7 @@ func (p *uaaRegistrar) createUser(uaaFirehoseUser string, uaaFirehosePassword st
 	code := resp.StatusCode
 	if code != 201 {
 		responseBody, _ := ioutil.ReadAll(resp.Body)
-		return "", errors.New(fmt.Sprintf("Creating user responded with %d:\n%+v", resp.StatusCode, string(responseBody)))
+		return "", errors.New(fmt.Sprintf("Creating user responded with [%d]: %s", resp.StatusCode, string(responseBody)))
 	} else {
 		created := map[string]interface{}{}
 		rawResponse, err := p.readAndUnmarshall(resp, &created)
@@ -224,17 +225,17 @@ func (p *uaaRegistrar) createUser(uaaFirehoseUser string, uaaFirehosePassword st
 
 		id := created["id"]
 		if id == nil {
-			return "", errors.New(fmt.Sprintf("Couldn't parse create response:\n%+v", string(rawResponse)))
+			return "", errors.New(fmt.Sprintf("Couldn't parse create response:\n%s", string(rawResponse)))
 		} else {
 			return id.(string), nil
 		}
 	}
 }
 
-func (p *uaaRegistrar) setPassword(uaaFirehoseUserId string, uaaFirehosePassword string) error {
-	url := fmt.Sprintf("%s/Users/%s/password", p.uaaUrl, uaaFirehoseUserId)
+func (p *uaaRegistrar) setPassword(uaaUserId string, uaaPassword string) error {
+	url := fmt.Sprintf("%s/Users/%s/password", p.uaaUrl, uaaUserId)
 	password := map[string]string{
-		"password": uaaFirehosePassword,
+		"password": uaaPassword,
 	}
 	resp, err := p.makeUaaRequest("PUT", url, password, map[string]string{})
 	if err != nil {
@@ -245,7 +246,7 @@ func (p *uaaRegistrar) setPassword(uaaFirehoseUserId string, uaaFirehosePassword
 	if resp.StatusCode != 200 && resp.StatusCode != 422 {
 		body, _ := ioutil.ReadAll(resp.Body)
 		return errors.New(
-			fmt.Sprintf("Update user password responded with [%d]: %+v", resp.StatusCode, string(body)),
+			fmt.Sprintf("Update user password responded with [%d]: %s", resp.StatusCode, string(body)),
 		)
 	} else {
 		return nil
@@ -262,7 +263,7 @@ func (p *uaaRegistrar) getGroup(displayName string) (*group, error) {
 	if resp.StatusCode != 200 {
 		body, _ := ioutil.ReadAll(resp.Body)
 		return nil, errors.New(
-			fmt.Sprintf("Get group responded with [%d]: %+v", resp.StatusCode, string(body)),
+			fmt.Sprintf("Get group responded with [%d]: %s", resp.StatusCode, string(body)),
 		)
 	} else {
 		body, _ := ioutil.ReadAll(resp.Body)
@@ -273,7 +274,7 @@ func (p *uaaRegistrar) getGroup(displayName string) (*group, error) {
 		}
 		if groups.TotalResults != 1 {
 			return nil, errors.New(
-				fmt.Sprintf("Expected a single group to match [%s]: %+v", displayName, string(body)),
+				fmt.Sprintf("Expected a single group to match [%s]: %s", displayName, string(body)),
 			)
 		}
 
@@ -306,15 +307,15 @@ func (p *uaaRegistrar) saveGroup(group *group) error {
 	if resp.StatusCode != 200 {
 		body, _ := ioutil.ReadAll(resp.Body)
 		return errors.New(
-			fmt.Sprintf("Save group responded with [%d]: %+v", resp.StatusCode, string(body)),
+			fmt.Sprintf("Save group responded with [%d]: %s", resp.StatusCode, string(body)),
 		)
 	} else {
 		return nil
 	}
 }
 
-func (p *uaaRegistrar) clientExists(uaaFirehoseClient string) (bool, error) {
-	url := fmt.Sprintf("%s/oauth/clients/%s", p.uaaUrl, uaaFirehoseClient)
+func (p *uaaRegistrar) clientExists(uaaClient string) (bool, error) {
+	url := fmt.Sprintf("%s/oauth/clients/%s", p.uaaUrl, uaaClient)
 	resp, err := p.makeUaaRequest("GET", url, nil, map[string]string{})
 	if err != nil {
 		return false, err
@@ -326,16 +327,15 @@ func (p *uaaRegistrar) clientExists(uaaFirehoseClient string) (bool, error) {
 	} else if code == 404 {
 		return false, nil
 	} else {
-		return false, errors.New(fmt.Sprintf("Checking if client exists responded incorrectly: %+v", resp))
+		body, _ := ioutil.ReadAll(resp.Body)
+		return false, errors.New(fmt.Sprintf("Checking if client exists responded incorrectly [%d]: %s", resp.StatusCode, body))
 	}
 }
 
-func (p *uaaRegistrar) createClient(uaaFirehoseUser string, uaaFirehoseSecret string) error {
+func (p *uaaRegistrar) createClient(uaaSecret string, uaaClient *Client) error {
 	url := fmt.Sprintf("%s/oauth/clients", p.uaaUrl)
-	client := p.getFirehoseClient()
-	client.ClientId = uaaFirehoseUser
-	client.ClientSecret = uaaFirehoseSecret
-	resp, err := p.makeUaaRequest("POST", url, client, map[string]string{})
+	uaaClient.ClientSecret = uaaSecret
+	resp, err := p.makeUaaRequest("POST", url, uaaClient, map[string]string{})
 	if err != nil {
 		return err
 	}
@@ -348,11 +348,9 @@ func (p *uaaRegistrar) createClient(uaaFirehoseUser string, uaaFirehoseSecret st
 	}
 }
 
-func (p *uaaRegistrar) updateClient(uaaFirehoseUser string, uaaFirehoseSecret string) error {
-	reqUserUrl := fmt.Sprintf("%s/oauth/clients/%s", p.uaaUrl, uaaFirehoseUser)
-	client := p.getFirehoseClient()
-	client.ClientId = uaaFirehoseUser
-	resp, err := p.makeUaaRequest("PUT", reqUserUrl, client, map[string]string{})
+func (p *uaaRegistrar) updateClient(uaaSecret string, uaaClient *Client) error {
+	reqUserUrl := fmt.Sprintf("%s/oauth/clients/%s", p.uaaUrl, uaaClient.ClientId)
+	resp, err := p.makeUaaRequest("PUT", reqUserUrl, uaaClient, map[string]string{})
 	if err != nil {
 		return err
 	}
@@ -362,9 +360,9 @@ func (p *uaaRegistrar) updateClient(uaaFirehoseUser string, uaaFirehoseSecret st
 		return errors.New(fmt.Sprintf("Update client responded incorrectly [%d]: %s", resp.StatusCode, body))
 	}
 
-	reqSecretUrl := fmt.Sprintf("%s/oauth/clients/%s/secret", p.uaaUrl, uaaFirehoseUser)
+	reqSecretUrl := fmt.Sprintf("%s/oauth/clients/%s/secret", p.uaaUrl, uaaClient.ClientId)
 	secret := map[string]string{
-		"secret": uaaFirehoseSecret,
+		"secret": uaaSecret,
 	}
 	resp, err = p.makeUaaRequest("PUT", reqSecretUrl, secret, map[string]string{})
 	if err != nil {
@@ -420,13 +418,4 @@ func (p *uaaRegistrar) makeUaaRequest(method string, url string, body interface{
 	}
 
 	return resp, nil
-}
-
-func (p *uaaRegistrar) getFirehoseClient() *Client {
-	return &Client{
-		Scope:                []string{"openid", "oauth.approvals", "doppler.firehose"},
-		ResourceIds:          []string{"none"},
-		Authorities:          []string{"oauth.login", "doppler.firehose"},
-		AuthorizedGrantTypes: []string{"client_credentials"},
-	}
 }
