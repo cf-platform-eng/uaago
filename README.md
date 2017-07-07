@@ -10,3 +10,7 @@ See [sample_cli](/sample_cli). You can run this like this:
 $ go build -o bin/sample-cli sample_cli/main.go
 $ ./bin/sample-cli [URL] [USER] [PASS]
 ```
+
+## To-do
+
+* Vendor dependencies
