@@ -7,7 +7,7 @@ import (
 
 	"io/ioutil"
 
-	"github.com/cf-platform-eng/uaago"
+	"github.com/cf-platform-eng/uaago/uaago"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

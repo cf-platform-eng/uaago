@@ -1,4 +1,4 @@
-package sample_cli_test
+package uaago
 
 import (
 	. "github.com/onsi/ginkgo"
@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestSampleCli(t *testing.T) {
+func TestUaaGo(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "SampleCli Suite")
+	RunSpecs(t, "UaaGo Suite")
 }

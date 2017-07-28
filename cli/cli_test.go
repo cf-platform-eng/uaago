@@ -1,11 +1,11 @@
-package sample_cli_test
+package cli_test
 
 import (
 	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/cf-platform-eng/uaago/management"
-	. "github.com/cf-platform-eng/uaago/sample_cli"
+	. "github.com/cf-platform-eng/uaago/cli"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

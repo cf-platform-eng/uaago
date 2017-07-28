@@ -14,7 +14,7 @@ import (
 
 	"code.cloudfoundry.org/lager"
 
-	"github.com/cf-platform-eng/uaago"
+	"github.com/cf-platform-eng/uaago/uaago"
 )
 
 const GROUP_CLOUD_CONTROLLER_ADMIN = "cloud_controller.admin"
