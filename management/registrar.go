@@ -256,7 +256,7 @@ func (p *uaaRegistrar) setPassword(uaaUserId string, uaaPassword string) error {
 }
 
 func (p *uaaRegistrar) getGroup(displayName string) (*group, error) {
-	url := fmt.Sprintf(`%s/Groups?filter=displayName+eq+"%s"`, p.uaaUrl, displayName)
+	url := fmt.Sprintf(`%s/Groups?filter=displayName+eq+%%22%s%%22`, p.uaaUrl, displayName)
 	resp, err := p.makeUaaRequest("GET", url, nil, map[string]string{})
 	if err != nil {
 		return nil, err
