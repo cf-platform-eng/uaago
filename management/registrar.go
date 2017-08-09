@@ -170,7 +170,7 @@ func (p *uaaRegistrar) AddUserToGroup(userId string, groupName string) error {
 }
 
 func (p *uaaRegistrar) getUserId(uaaUser string) (string, error) {
-	url := fmt.Sprintf(`%s/Users?filter=userName+eq+"%s"`, p.uaaUrl, uaaUser)
+	url := fmt.Sprintf(`%s/Users?filter=userName+eq+%%22%s%%22`, p.uaaUrl, uaaUser)
 	resp, err := p.makeUaaRequest("GET", url, nil, map[string]string{})
 	if err != nil {
 		return "", err
