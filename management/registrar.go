@@ -40,6 +40,7 @@ type groupResourceSet struct {
 
 type user struct {
 	UserName string  `json:"userName"`
+	Password string  `json:"password"`
 	Origin   string  `json:"origin"`
 	Emails   []email `json:"emails"`
 }
@@ -202,6 +203,7 @@ func (p *uaaRegistrar) createUser(uaaUser string, uaaPassword string) (string, e
 	url := fmt.Sprintf(`%s/Users`, p.uaaUrl)
 	user := user{
 		UserName: uaaUser,
+		Password: uaaPassword,
 		Origin:   "uaa",
 		Emails: []email{
 			{Value: uaaUser},
