@@ -9,8 +9,8 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"reflect"
 	"strconv"
-	"strings"
 
 	"code.cloudfoundry.org/lager"
 
@@ -282,14 +282,18 @@ func (p *uaaRegistrar) getGroup(displayName string) (*group, error) {
 
 		group := groups.Resources[0]
 		//No way to fail on unexpected json keys ∴ re-serialize protect against schema changes
-		check, err := json.Marshal(group)
-		if err != nil {
-			return nil, err
-		}
-		if !strings.Contains(string(body), string(check)) {
+		body_unmarshaled := make(map[string]interface{})
+		json.Unmarshal(body, &body_unmarshaled)
+		resources_unmarshaled := body_unmarshaled["resources"]
+		group_unmarshaled_interface := reflect.ValueOf(resources_unmarshaled).Index(0).Interface()
+		group_unmarshaled := group_unmarshaled_interface.(map[string]interface{})
+		check_json, err := json.Marshal(group)
+		check := make(map[string]interface{})
+		json.Unmarshal(check_json, &check)
+		if !reflect.DeepEqual(group_unmarshaled, check) {
 			return nil, errors.New(fmt.Sprintf(
-				"UAA response schema didn't match expectations, response vs re-serialized:\n%s\n%s\n",
-				string(body), string(check),
+				"UAA response schema didn't match expectations, response vs re-serialized:\n%v\n%v\n",
+				group_unmarshaled, check,
 			))
 		}
 		return group, nil
