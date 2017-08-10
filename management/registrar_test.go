@@ -271,7 +271,7 @@ var _ = Describe("uaa_registrar", func() {
 					request := capturedRequests[0]
 					Expect(request.request.Method).To(Equal("GET"))
 					Expect(request.request.URL.Path).To(Equal("/Users"))
-					Expect(request.request.URL.RawQuery).To(Equal(`filter=userName+eq+"my-uaa-user"`))
+					Expect(request.request.URL.RawQuery).To(Equal(`filter=userName+eq+%22my-uaa-user%22`))
 					Expect(request.request.Header.Get("Authorization")).To(Equal("my-token"))
 				})
 
