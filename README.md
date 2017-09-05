@@ -7,8 +7,8 @@ UAA client for golang.
 See [sample_cli](/sample_cli). You can run this like this:
 
 ```bash
-$ go build -o bin/sample-cli sample_cli/main.go
-$ ./bin/sample-cli [URL] [USER] [PASS]
+$ go build -o bin/uaago main.go
+$ ./bin/uaago [URL] [USERNAME] [PASS] [PATH TO USER FILE]
 ```
 
 ## To-do
