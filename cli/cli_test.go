@@ -4,8 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/cf-platform-eng/uaago/management"
+
 	. "github.com/cf-platform-eng/uaago/cli"
+	"github.com/cf-platform-eng/uaago/management"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -38,7 +39,7 @@ var _ = Describe("uaa_registrar", func() {
 			registrar := &MockRegistrar{
 				RegisterUserFn: func(uaaUser string, uaaPassword string) (string, error) {
 					providedUsernames = append(providedUsernames, uaaUser)
-					return fmt.Sprintf("%v-id"), nil
+					return fmt.Sprintf("%s-id", uaaUser), nil
 				},
 			}
 			err := RegisterUsers(registrar, users)

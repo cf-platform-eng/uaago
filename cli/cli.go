@@ -10,8 +10,6 @@ type User struct {
 	Groups   []string `json:"groups"`
 }
 
-
-
 func RegisterUsers(registrar management.UaaRegistrar, users []User) error {
 	for _, user := range users {
 		id, err := registrar.RegisterUser(user.Username, user.Password)

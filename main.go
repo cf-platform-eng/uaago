@@ -1,14 +1,15 @@
 package main
 
 import (
-	"code.cloudfoundry.org/lager"
 	"encoding/json"
 	"fmt"
-	"github.com/cf-platform-eng/uaago/management"
-	"github.com/cf-platform-eng/uaago/cli"
-	"github.com/cf-platform-eng/uaago/uaago"
 	"io/ioutil"
 	"os"
+
+	"code.cloudfoundry.org/lager"
+	"github.com/cf-platform-eng/uaago/cli"
+	"github.com/cf-platform-eng/uaago/management"
+	"github.com/cf-platform-eng/uaago/uaago"
 )
 
 func main() {
