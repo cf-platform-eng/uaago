@@ -33,6 +33,7 @@ func run(args []string) int {
 	err = json.Unmarshal(file, &users)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error unmarshaling json file: %s\n", err.Error())
+		return 1
 	}
 
 	tokenFetcher := uaago.NewUAATokenFetcher(args[1], args[2], args[3], true)
@@ -41,11 +42,13 @@ func run(args []string) int {
 	registrar, err := management.NewUaaRegistrar(args[1], tokenFetcher, true, logger)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating new UAA registrar: %s\n", err.Error())
+		return 1
 	}
 
 	err = cli.RegisterUsers(registrar, users)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error registering users: %s\n", err.Error())
+		return 1
 	}
 
 	return 0
