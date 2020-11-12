@@ -1,3 +1,5 @@
+# uaago is no longer actively maintained by VMware.
+
 # uaago
 
 UAA client for golang.
